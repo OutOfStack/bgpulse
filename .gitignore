@@ -1,0 +1,38 @@
+# Binaries
+/bgpulse
+/bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test / coverage / profiling
+*.test
+*.out
+coverage.*
+*.coverprofile
+*.prof
+*.pprof
+
+# Go workspace
+go.work
+go.work.sum
+
+# Dependencies (if vendoring is not used)
+/vendor/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# local files
+docs/local
