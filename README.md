@@ -12,7 +12,7 @@ BGP is how networks announce which IP prefixes they can reach. Routes change con
 - Did one collector see a change before another?
 - Which prefix/origin pairs fail RPKI validation?
 
-It reports *observations from participating peers*, not the whole Internet, and flags *candidate* anomalies, not confirmed hijacks.
+It reports _observations from participating peers_, not the whole Internet, and flags _candidate_ anomalies, not confirmed hijacks.
 
 ## Try it
 
@@ -43,4 +43,3 @@ RIPE RIS Live ─▶ ingest ─▶ NATS JetStream ─▶ persist ─▶ ScyllaDB
 2. **Routing state:** per-observer RIB from MRT snapshots and live updates, with honest coverage labels.
 3. **Analytics:** windowed churn and top lists, RPKI validation, a second collector or RouteViews, and candidate incidents.
 4. **Performance and reliability:** replay benchmarks, an HA profile, and backup/restore.
-
