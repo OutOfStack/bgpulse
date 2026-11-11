@@ -1,5 +1,5 @@
 // Package event turns one RIS Live message into a normalized message with
-// deterministic per-prefix children (plan.md §4.1, §4.3, §4.4).
+// deterministic per-prefix children.
 package event
 
 import (
