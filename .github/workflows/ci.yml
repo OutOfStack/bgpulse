@@ -1,6 +1,9 @@
 name: ci
 
-on: [push]
+on:
+  push:
+  schedule:
+    - cron: "0 6 * * 1" # weekly, picks up new vulnerabilities without a push
 
 permissions:
   contents: read
@@ -21,7 +24,6 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-          cache-dependency-path: go.mod
 
       - name: Check go.mod is tidy
         run: go mod tidy -diff
@@ -36,3 +38,40 @@ jobs:
 
       - name: Test
         run: make test
+
+      - name: govulncheck
+        run: make vuln
+
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Raise async IO limit for Scylla
+        run: sudo sysctl -w fs.aio-max-nr=1048576
+
+      - name: Start NATS and Scylla
+        run: make up
+
+      - name: Setup
+        run: make setup
+
+      - name: Integration tests
+        run: make test-integration
+
+      - name: Resources survive a restart
+        run: |
+          make down
+          make up
+          make setup ARGS=-check
+
+      - name: Container logs
+        if: failure()
+        run: docker compose -f deploy/compose.yaml logs --tail=200

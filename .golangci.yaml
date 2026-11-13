@@ -64,6 +64,9 @@ linters:
     errcheck:
       exclude-functions:
         - (*encoding/json.Decoder).Decode
+    gomoddirectives:
+      replace-allow-list:
+        - github.com/gocql/gocql # Scylla's shard-aware fork keeps the gocql module path
     goconst:
       min-len: 3
       min-occurrences: 3
