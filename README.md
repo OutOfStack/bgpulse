@@ -17,10 +17,21 @@ It reports _observations from participating peers_, not the whole Internet, and 
 ## Try it
 
 ```bash
-go run ./cmd/bgpulse -host rrc21
+go run ./cmd/bgpulse watch -host rrc21
 ```
 
 This streams live BGP UPDATEs from one RIPE RIS collector and prints each announcement (with its AS path and origin) and each withdrawal. Ctrl-C prints a summary.
+
+## Develop
+
+Needs Go (version in `go.mod`) and Docker or Podman with Compose. The dev stack runs Scylla with 2 CPUs and 4 GiB by default; on WSL2/Podman give the VM more than that, or set `SCYLLA_SMP` / `SCYLLA_MEMORY`.
+
+| Target | What it does |
+|---|---|
+| `make build` / `make test` / `make lint` / `make vuln` | Build, unit tests with `-race`, golangci-lint, govulncheck |
+| `make up` / `make down` | Start or stop pinned NATS and Scylla from `deploy/compose.yaml` (localhost ports, volumes kept) |
+| `make setup` | Create the JetStream stream/consumer and apply CQL migrations; `make setup ARGS=-check` only verifies |
+| `make test-integration` | Integration tests against the running stack |
 
 ## How
 

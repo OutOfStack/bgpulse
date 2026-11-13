@@ -1,0 +1,2 @@
+# Migration checksums must not depend on the checkout OS.
+*.cql text eol=lf

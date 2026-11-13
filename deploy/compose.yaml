@@ -1,0 +1,51 @@
+# Development dependencies. Works with `docker compose` and `podman compose`.
+# Every port binds to localhost only. `make down` keeps the volumes;
+# add -v to wipe them.
+name: bgpulse
+
+services:
+  nats:
+    image: nats:2.15.2-alpine@sha256:afae2fdbe2e326c65e1246cb83b9d05d319188734f3bd577ac8072daae78a10f
+    command: ["-c", "/etc/nats/nats.conf"]
+    ports:
+      - "127.0.0.1:4222:4222"
+      - "127.0.0.1:8222:8222" # monitoring
+    volumes:
+      - ./nats/nats.conf:/etc/nats/nats.conf:ro
+      - nats-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8222/healthz?js-enabled-only=true"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+
+  scylla:
+    image: scylladb/scylla:2026.3.5@sha256:00e7bba5672ffb85a4c6dbee9f0d772628705e4551295de3776aca8d659468ed
+    # Developer mode is for this profile only. --smp and --memory bound the
+    # container; the advertised address lets the driver connect from the host.
+    command:
+      - --developer-mode=1
+      - --overprovisioned=1
+      - --smp=${SCYLLA_SMP:-2}
+      - --memory=${SCYLLA_MEMORY:-4G}
+      - --broadcast-rpc-address=127.0.0.1
+    ports:
+      - "127.0.0.1:9042:9042"
+      - "127.0.0.1:19042:19042" # shard-aware
+    volumes:
+      - scylla-data:/var/lib/scylla
+    healthcheck:
+      test: ["CMD", "cqlsh", "-e", "SELECT now() FROM system.local"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 20s
+
+volumes:
+  nats-data:
+  scylla-data:
