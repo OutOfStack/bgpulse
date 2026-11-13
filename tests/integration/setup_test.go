@@ -121,6 +121,10 @@ func TestStreamDriftFails(t *testing.T) {
 	if !errors.Is(err, natsjs.ErrStreamNameAlreadyInUse) {
 		t.Fatalf("Ensure on a drifted stream: err = %v, want ErrStreamNameAlreadyInUse", err)
 	}
+	err = jetstream.Check(t.Context(), e.js, e.ns)
+	if err == nil || !strings.Contains(err.Error(), "MaxAge") {
+		t.Fatalf("Check on a drifted stream: err = %v, want a MaxAge mismatch", err)
+	}
 }
 
 func TestConsumerDriftFails(t *testing.T) {
@@ -136,6 +140,10 @@ func TestConsumerDriftFails(t *testing.T) {
 	}
 	if err := jetstream.Ensure(t.Context(), e.js, e.ns); err == nil {
 		t.Fatal("Ensure on a drifted consumer succeeded")
+	}
+	err := jetstream.Check(t.Context(), e.js, e.ns)
+	if err == nil || !strings.Contains(err.Error(), "MaxAckPending") {
+		t.Fatalf("Check on a drifted consumer: err = %v, want a MaxAckPending mismatch", err)
 	}
 }
 

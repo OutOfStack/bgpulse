@@ -5,6 +5,7 @@ package jetstream
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -60,11 +61,55 @@ func Ensure(ctx context.Context, js natsjs.JetStream, ns string) error {
 	return nil
 }
 
-// Check reports an error if the stream or consumer is missing. It changes nothing.
+// Check reports an error if the stream or consumer is missing or a declared
+// field differs. It changes nothing. Only declared fields are compared,
+// because the server fills in defaults for the rest.
 func Check(ctx context.Context, js natsjs.JetStream, ns string) error {
-	name := RawStream(ns).Name
-	if _, err := js.Consumer(ctx, name, HistoryConsumer); err != nil {
-		return fmt.Errorf("consumer %s/%s: %w", name, HistoryConsumer, err)
+	want := RawStream(ns)
+	s, err := js.Stream(ctx, want.Name)
+	if err != nil {
+		return fmt.Errorf("stream %s: %w", want.Name, err)
+	}
+	got := s.CachedInfo().Config
+	err = compare("stream "+want.Name, []field{
+		{"Subjects", want.Subjects, got.Subjects},
+		{"Storage", want.Storage, got.Storage},
+		{"Retention", want.Retention, got.Retention},
+		{"Replicas", want.Replicas, got.Replicas},
+		{"MaxAge", want.MaxAge, got.MaxAge},
+		{"MaxBytes", want.MaxBytes, got.MaxBytes},
+		{"Discard", want.Discard, got.Discard},
+		{"MaxMsgSize", want.MaxMsgSize, got.MaxMsgSize},
+		{"Duplicates", want.Duplicates, got.Duplicates},
+	})
+	if err != nil {
+		return err
+	}
+
+	c, err := s.Consumer(ctx, HistoryConsumer)
+	if err != nil {
+		return fmt.Errorf("consumer %s/%s: %w", want.Name, HistoryConsumer, err)
+	}
+	wantC, gotC := History(), c.CachedInfo().Config
+	return compare("consumer "+want.Name+"/"+HistoryConsumer, []field{
+		{"DeliverPolicy", wantC.DeliverPolicy, gotC.DeliverPolicy},
+		{"AckPolicy", wantC.AckPolicy, gotC.AckPolicy},
+		{"AckWait", wantC.AckWait, gotC.AckWait},
+		{"MaxAckPending", wantC.MaxAckPending, gotC.MaxAckPending},
+	})
+}
+
+type field struct {
+	name      string
+	want, got any
+}
+
+func compare(resource string, fields []field) error {
+	for _, f := range fields {
+		if !reflect.DeepEqual(f.want, f.got) {
+			return fmt.Errorf("%s: %s is %v, want %v (setup does not change existing resources)",
+				resource, f.name, f.got, f.want)
+		}
 	}
 	return nil
 }
