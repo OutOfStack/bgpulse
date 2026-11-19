@@ -86,17 +86,17 @@ func run(ctx context.Context, host string) error {
 
 	dec := jsontext.NewDecoder(resp.Body)
 	for {
-		raw, err := dec.ReadValue()
-		if err != nil {
-			return err
+		raw, rErr := dec.ReadValue()
+		if rErr != nil {
+			return rErr
 		}
-		m, err := event.Normalize(raw)
-		if errors.Is(err, event.ErrNotData) {
+		m, nErr := event.Normalize(raw)
+		if errors.Is(nErr, event.ErrNotData) {
 			continue
 		}
-		if err != nil {
+		if nErr != nil {
 			invalid++
-			log.Printf("invalid message: %v", err)
+			log.Printf("invalid message: %v", nErr)
 			continue
 		}
 		msgs++

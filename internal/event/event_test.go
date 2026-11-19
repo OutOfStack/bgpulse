@@ -6,9 +6,8 @@ import (
 	"testing"
 )
 
-// update has two withdrawals, two announcement groups, a prefix repeated
-// across withdraw/announce, uncompressed IPv6, host bits set, a 32-bit ASN
-// and prepending.
+// update has two withdrawals, two announcement groups, a prefix repeated across withdraw/announce, uncompressed IPv6,
+// host bits set, a 32-bit ASN and prepending.
 const update = `{"type":"ris_message","data":{
  "timestamp":1568279796.63,"peer":"192.0.2.1","peer_asn":"4200000000",
  "id":"21-192-0-2-1-11188782","host":"rrc21.ripe.net","type":"UPDATE",

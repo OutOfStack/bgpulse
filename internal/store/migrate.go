@@ -50,9 +50,8 @@ func Load(fsys fs.FS) ([]Migration, error) {
 	return migs, nil
 }
 
-// pending returns the migrations not yet applied. Applied must be an unchanged
-// prefix of migs: a changed checksum, a version this binary does not know, or a
-// gap is drift and fails.
+// pending returns the migrations not yet applied. Applied must be an unchanged prefix of migs: a changed checksum,
+// a version this binary does not know, or a gap is drift and fails.
 func pending(migs []Migration, applied map[int]string) ([]Migration, error) {
 	if len(applied) > len(migs) {
 		return nil, fmt.Errorf("schema has %d migrations, binary knows %d", len(applied), len(migs))
@@ -110,12 +109,12 @@ func Migrate(ctx context.Context, s *gocql.Session, ns string, migs []Migration)
 	}
 	for _, m := range todo {
 		for _, q := range statements(m.CQL, ks) {
-			if err := exec(ctx, s, q); err != nil {
+			if err = exec(ctx, s, q); err != nil {
 				return nil, fmt.Errorf("migration %d (%s): %w", m.Version, m.Name, err)
 			}
 		}
 		insert := fmt.Sprintf(`INSERT INTO %s.schema_migrations (version, name, checksum, applied_at) VALUES (?, ?, ?, ?)`, ks)
-		if err := s.Query(insert, m.Version, m.Name, m.Checksum, time.Now()).WithContext(ctx).Exec(); err != nil {
+		if err = s.Query(insert, m.Version, m.Name, m.Checksum, time.Now()).WithContext(ctx).Exec(); err != nil {
 			return nil, fmt.Errorf("record migration %d: %w", m.Version, err)
 		}
 	}
