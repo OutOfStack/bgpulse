@@ -1,5 +1,4 @@
-// Package event turns one RIS Live message into a normalized message with
-// deterministic per-prefix children.
+// Package event turns one RIS Live message into a normalized message with deterministic per-prefix children.
 package event
 
 import (
@@ -102,8 +101,8 @@ type risMessage struct {
 	} `json:"data"`
 }
 
-// Normalize parses one RIS Live frame. Any invalid required field rejects the
-// whole message so a malformed subset is never treated as complete.
+// Normalize parses one RIS Live frame. Any invalid required field rejects the whole message so a malformed subset is
+// never treated as complete.
 func Normalize(raw []byte) (*Message, error) {
 	var r risMessage
 	if err := json.Unmarshal(raw, &r); err != nil {
@@ -146,9 +145,9 @@ func Normalize(raw []byte) (*Message, error) {
 	}
 
 	for i, p := range d.Withdrawals {
-		pfx, perr := netip.ParsePrefix(p)
-		if perr != nil {
-			return nil, fmt.Errorf("withdrawal %d: %w", i, perr)
+		pfx, pErr := netip.ParsePrefix(p)
+		if pErr != nil {
+			return nil, fmt.Errorf("withdrawal %d: %w", i, pErr)
 		}
 		m.add(Child{Action: Withdraw, Prefix: pfx.Masked()}, 0, i)
 	}
@@ -163,16 +162,16 @@ func Normalize(raw []byte) (*Message, error) {
 		}
 		var hops []netip.Addr
 		for h := range strings.SplitSeq(a.NextHop, ",") { // IPv6 may carry global,link-local
-			addr, perr := netip.ParseAddr(strings.TrimSpace(h))
-			if perr != nil {
-				return nil, fmt.Errorf("announcement %d next_hop: %w", g, perr)
+			addr, pErr := netip.ParseAddr(strings.TrimSpace(h))
+			if pErr != nil {
+				return nil, fmt.Errorf("announcement %d next_hop: %w", g, pErr)
 			}
 			hops = append(hops, addr)
 		}
 		for i, p := range a.Prefixes {
-			pfx, perr := netip.ParsePrefix(p)
-			if perr != nil {
-				return nil, fmt.Errorf("announcement %d prefix %d: %w", g, i, perr)
+			pfx, pErr := netip.ParsePrefix(p)
+			if pErr != nil {
+				return nil, fmt.Errorf("announcement %d prefix %d: %w", g, i, pErr)
 			}
 			m.add(Child{
 				Action: Announce, Prefix: pfx.Masked(), NextHops: hops,

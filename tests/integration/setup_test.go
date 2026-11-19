@@ -1,7 +1,7 @@
 //go:build integration
 
-// Package integration runs against the pinned NATS and Scylla containers from
-// deploy/compose.yaml (`make up`). Each test uses its own random namespace.
+// Package integration runs against the pinned NATS and Scylla containers from deploy/compose.yaml (`make up`).
+// Each test uses its own random namespace.
 package integration
 
 import (
@@ -204,18 +204,18 @@ func TestRoundTrip(t *testing.T) {
 	insert := "INSERT INTO " + store.Keyspace(e.ns) + `.raw_messages_v1
 		(source, collector, bucket_start, shard, event_time_us, message_id, payload, expires_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?) USING TTL ?`
-	if err := e.sess.Query(insert, "ris", "rrc00", bucket, int16(0), now.UnixMicro(), msgID,
+	if err = e.sess.Query(insert, "ris", "rrc00", bucket, int16(0), now.UnixMicro(), msgID,
 		msg.Data(), now.Add(time.Hour), 3600).WithContext(ctx).Exec(); err != nil {
 		t.Fatal(err)
 	}
-	if err := msg.DoubleAck(ctx); err != nil {
+	if err = msg.DoubleAck(ctx); err != nil {
 		t.Fatal(err)
 	}
 
 	var got []byte
 	sel := "SELECT payload FROM " + store.Keyspace(e.ns) + `.raw_messages_v1
 		WHERE source = ? AND collector = ? AND bucket_start = ? AND shard = ?`
-	if err := e.sess.Query(sel, "ris", "rrc00", bucket, int16(0)).WithContext(ctx).Scan(&got); err != nil {
+	if err = e.sess.Query(sel, "ris", "rrc00", bucket, int16(0)).WithContext(ctx).Scan(&got); err != nil {
 		t.Fatal(err)
 	}
 	if string(got) != string(payload) {
@@ -240,7 +240,7 @@ func TestSyncAlways(t *testing.T) {
 			SyncAlways bool `json:"sync_always"`
 		} `json:"config"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&jsz); err != nil {
+	if err = json.NewDecoder(resp.Body).Decode(&jsz); err != nil {
 		t.Fatal(err)
 	}
 	if !jsz.Config.SyncAlways {

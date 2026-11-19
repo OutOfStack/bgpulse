@@ -35,6 +35,8 @@ Needs Go (version in `go.mod`) and Docker or Podman with Compose. The dev stack 
 
 ## How
 
+See [current architecture and data flow](docs/architecture.md) for a Mermaid diagram of the implemented `watch` and `setup` paths. The pipeline below is the target architecture; the remaining subcommands are planned.
+
 ```
 RIPE RIS Live ─▶ ingest ─▶ NATS JetStream ─▶ persist ─▶ ScyllaDB ─▶ HTTP API
  (RouteViews)               (durable buffer)  state          (history,

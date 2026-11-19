@@ -1,5 +1,4 @@
-// Package jetstream declares the JetStream resources of one namespace and
-// provisions or checks them.
+// Package jetstream declares the JetStream resources of one namespace and provisions or checks them.
 package jetstream
 
 import (
@@ -47,9 +46,8 @@ func History() natsjs.ConsumerConfig {
 	}
 }
 
-// Ensure creates missing resources. The server accepts a create with an
-// identical config and rejects a different one, so drift fails here instead of
-// being silently overwritten.
+// Ensure creates missing resources. The server accepts a create with an identical config and rejects a different one,
+// so drift fails here instead of being silently overwritten.
 func Ensure(ctx context.Context, js natsjs.JetStream, ns string) error {
 	cfg := RawStream(ns)
 	if _, err := js.CreateStream(ctx, cfg); err != nil {
@@ -61,9 +59,8 @@ func Ensure(ctx context.Context, js natsjs.JetStream, ns string) error {
 	return nil
 }
 
-// Check reports an error if the stream or consumer is missing or a declared
-// field differs. It changes nothing. Only declared fields are compared,
-// because the server fills in defaults for the rest.
+// Check reports an error if the stream or consumer is missing or a declared field differs. It changes nothing. Only
+// declared fields are compared, because the server fills in defaults for the rest.
 func Check(ctx context.Context, js natsjs.JetStream, ns string) error {
 	want := RawStream(ns)
 	s, err := js.Stream(ctx, want.Name)
