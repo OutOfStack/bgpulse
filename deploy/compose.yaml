@@ -25,7 +25,7 @@ services:
           memory: 512M
 
   scylla:
-    image: scylladb/scylla:2026.3.5@sha256:00e7bba5672ffb85a4c6dbee9f0d772628705e4551295de3776aca8d659468ed
+    image: scylladb/scylla:2026.3.6@sha256:56e4153c5de13c4a4d081804018c8ae034bd0ef19ee450930790779056dfd2d9
     # Developer mode is for this profile only. --smp and --memory bound the
     # container; the advertised address lets the driver connect from the host.
     command:
