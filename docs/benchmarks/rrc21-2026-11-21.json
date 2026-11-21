@@ -1,0 +1,48 @@
+{
+  "collector": "rrc21",
+  "started": "2026-11-21T11:02:32.391822Z",
+  "elapsed_seconds": 1800.0003921,
+  "windows": [
+    {
+      "half": 1,
+      "acknowledged": "2026-11-21T11:02:32.7401974Z",
+      "first_data": "2026-11-21T11:02:33.0633789Z",
+      "last_data": "2026-11-21T11:17:32.1852305Z",
+      "messages": 467955,
+      "end": "deadline"
+    },
+    {
+      "half": 2,
+      "acknowledged": "2026-11-21T11:17:32.7120826Z",
+      "first_data": "2026-11-21T11:17:32.8430997Z",
+      "last_data": "2026-11-21T11:32:32.1089613Z",
+      "messages": 468745,
+      "end": "deadline"
+    }
+  ],
+  "prefix_events_per_second": 1434.1707987009054,
+  "invalid_messages": 0,
+  "complete": true,
+  "raw_messages_per_second": 520.3887755308673,
+  "payload_bytes": {
+    "p95": 615,
+    "p99": 997,
+    "count": 936700,
+    "sum": 421328693,
+    "max": 18042,
+    "p50": 413
+  },
+  "prefixes_per_valid_message": {
+    "p50": 1,
+    "p95": 7,
+    "p99": 27,
+    "count": 936700,
+    "sum": 2581508,
+    "max": 1006
+  },
+  "valid_message_types": {
+    "UPDATE": 933454,
+    "KEEPALIVE": 2449,
+    "other": 797
+  }
+}

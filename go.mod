@@ -5,8 +5,9 @@ go 1.27.0
 toolchain go1.27.4
 
 require (
+	github.com/coder/websocket v1.8.15
 	github.com/gocql/gocql v1.7.0
-	github.com/nats-io/nats.go v1.55.0
+	github.com/nats-io/nats.go v1.56.0
 )
 
 require (
