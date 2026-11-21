@@ -2,9 +2,36 @@ package event
 
 import (
 	"errors"
+	"os"
 	"reflect"
 	"testing"
 )
+
+func FuzzNormalize(f *testing.F) {
+	fixture, err := os.ReadFile("../../testdata/ris/rrc21-update.json")
+	if err != nil {
+		f.Fatal(err)
+	}
+	f.Add(fixture)
+	f.Add([]byte(update))
+	f.Add([]byte(`{"type":"pong","data":null}`))
+	f.Fuzz(func(t *testing.T, raw []byte) {
+		if len(raw) > 1<<20 {
+			t.Skip()
+		}
+		m, err := Normalize(raw)
+		if err != nil {
+			return
+		}
+		seen := make(map[string]bool, len(m.Children))
+		for i, c := range m.Children {
+			if c.Ordinal != i || seen[c.EventID] {
+				t.Fatalf("invalid child identity at ordinal %d", i)
+			}
+			seen[c.EventID] = true
+		}
+	})
+}
 
 // update has two withdrawals, two announcement groups, a prefix repeated across withdraw/announce, uncompressed IPv6,
 // host bits set, a 32-bit ASN and prepending.

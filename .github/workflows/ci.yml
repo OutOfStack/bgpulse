@@ -39,6 +39,9 @@ jobs:
       - name: Test
         run: make test
 
+      - name: Fuzz the RIS normalizer
+        run: go test ./internal/event -run '^$' -fuzz '^FuzzNormalize$' -fuzztime=5s
+
       - name: govulncheck
         run: make vuln
 

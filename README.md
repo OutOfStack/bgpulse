@@ -22,6 +22,8 @@ go run ./cmd/bgpulse watch -host rrc21
 
 This streams live BGP UPDATEs from one RIPE RIS collector and prints each announcement (with its AS path and origin) and each withdrawal. Ctrl-C prints a summary.
 
+To measure all message types from `rrc21`, run `go run ./cmd/bgpulse sample`. It samples for 30 minutes, resubscribes halfway through, and writes a JSON summary to stdout. Use `-duration 30s` for a quick check. See the [capture results and PubAck benchmark](docs/benchmarks/rrc21-sample.md).
+
 ## Develop
 
 Needs Go (version in `go.mod`) and Docker or Podman with Compose. The dev stack runs Scylla with 2 CPUs and 4 GiB by default; on WSL2/Podman give the VM more than that, or set `SCYLLA_SMP` / `SCYLLA_MEMORY`.
@@ -35,7 +37,7 @@ Needs Go (version in `go.mod`) and Docker or Podman with Compose. The dev stack 
 
 ## How
 
-See [current architecture and data flow](docs/architecture.md) for a Mermaid diagram of the implemented `watch` and `setup` paths. The pipeline below is the target architecture; the remaining subcommands are planned.
+See [current architecture and data flow](docs/architecture.md) for the implemented `watch`, `sample` and `setup` paths. The pipeline below is the target architecture; the remaining subcommands are planned.
 
 ```
 RIPE RIS Live ─▶ ingest ─▶ NATS JetStream ─▶ persist ─▶ ScyllaDB ─▶ HTTP API

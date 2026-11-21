@@ -1,6 +1,7 @@
 // Command bgpulse is the BGPulse binary. Its subcommands are:
 //
 //	watch  stream live BGP UPDATEs from one RIPE RIS collector and print them
+//	sample  measure rrc21 over two consecutive RIS Live subscriptions
 //	setup  create or check the JetStream streams and Scylla schema
 package main
 
@@ -21,7 +22,7 @@ import (
 
 const streamURL = "https://ris-live.ripe.net/v1/stream/?format=json&client=bgpulse"
 
-const usage = "usage: bgpulse <watch|setup> [flags]"
+const usage = "usage: bgpulse <watch|sample|setup> [flags]"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -32,6 +33,8 @@ func main() {
 	switch os.Args[1] {
 	case "watch":
 		err = watch(ctx, os.Args[2:])
+	case "sample":
+		err = sample(ctx, os.Args[2:])
 	case "setup":
 		err = setup(ctx, os.Args[2:])
 	default:

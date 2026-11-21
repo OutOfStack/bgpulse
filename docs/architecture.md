@@ -1,6 +1,6 @@
 # Current architecture and data flow
 
-BGPulse is one Go binary with two implemented subcommands: `watch` and `setup`.
+BGPulse provides `watch`, `sample` and `setup` in one Go binary.
 The diagrams show the current implementation. Provisioning arrows create or
 verify resources; they do not carry BGP updates.
 
@@ -22,6 +22,12 @@ preserves AS path segments and origin ambiguity, and derives stable message,
 observer and child event IDs. Each UPDATE produces withdrawal children followed
 by announcement children. Invalid messages are logged and skipped; transport or
 decode errors end the command. This path currently writes only to the terminal.
+
+`sample` connects to the same collector over WebSocket for two timed observation
+windows. It verifies the subscription acknowledgment after every reconnect,
+measures raw JSON bytes, and uses the normalizer to count prefix children.
+The JSON report includes rates, distributions, and the first and last observation
+on each connection. [Measurement and results](benchmarks/rrc21-sample.md)
 
 ## Infrastructure provisioning
 
