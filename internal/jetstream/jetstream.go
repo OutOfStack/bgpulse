@@ -9,6 +9,7 @@ import (
 	"time"
 
 	natsjs "github.com/nats-io/nats.go/jetstream"
+	"github.com/outofstack/bgpulse/internal/event"
 )
 
 // HistoryConsumer is the durable consumer that persists raw messages to history.
@@ -22,10 +23,10 @@ func RawStream(ns string) natsjs.StreamConfig {
 		Storage:    natsjs.FileStorage,
 		Retention:  natsjs.LimitsPolicy,
 		Replicas:   1,
-		MaxAge:     24 * time.Hour,
+		MaxAge:     20 * time.Minute,
 		MaxBytes:   10 << 30,
 		Discard:    natsjs.DiscardNew,
-		MaxMsgSize: 2 << 20,
+		MaxMsgSize: event.RawRecordLimit,
 		Duplicates: 10 * time.Minute,
 	}
 }
@@ -62,13 +63,33 @@ func Ensure(ctx context.Context, js natsjs.JetStream, ns string) error {
 // Check reports an error if the stream or consumer is missing or a declared field differs. It changes nothing. Only
 // declared fields are compared, because the server fills in defaults for the rest.
 func Check(ctx context.Context, js natsjs.JetStream, ns string) error {
+	s, err := checkStream(ctx, js, ns)
+	if err != nil {
+		return err
+	}
+	name := s.CachedInfo().Config.Name
+	c, err := s.Consumer(ctx, HistoryConsumer)
+	if err != nil {
+		return fmt.Errorf("consumer %s/%s: %w", name, HistoryConsumer, err)
+	}
+	wantC, gotC := History(), c.CachedInfo().Config
+	return compare("consumer "+name+"/"+HistoryConsumer, []field{
+		{"DeliverPolicy", wantC.DeliverPolicy, gotC.DeliverPolicy},
+		{"AckPolicy", wantC.AckPolicy, gotC.AckPolicy},
+		{"AckWait", wantC.AckWait, gotC.AckWait},
+		{"MaxAckPending", wantC.MaxAckPending, gotC.MaxAckPending},
+	})
+}
+
+func checkStream(ctx context.Context, js natsjs.JetStream, ns string) (natsjs.Stream, error) {
 	want := RawStream(ns)
 	s, err := js.Stream(ctx, want.Name)
 	if err != nil {
-		return fmt.Errorf("stream %s: %w", want.Name, err)
+		return nil, fmt.Errorf("stream %s: %w", want.Name, err)
 	}
 	got := s.CachedInfo().Config
 	err = compare("stream "+want.Name, []field{
+		{"AllowDirect", want.AllowDirect, got.AllowDirect},
 		{"Subjects", want.Subjects, got.Subjects},
 		{"Storage", want.Storage, got.Storage},
 		{"Retention", want.Retention, got.Retention},
@@ -80,20 +101,9 @@ func Check(ctx context.Context, js natsjs.JetStream, ns string) error {
 		{"Duplicates", want.Duplicates, got.Duplicates},
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	c, err := s.Consumer(ctx, HistoryConsumer)
-	if err != nil {
-		return fmt.Errorf("consumer %s/%s: %w", want.Name, HistoryConsumer, err)
-	}
-	wantC, gotC := History(), c.CachedInfo().Config
-	return compare("consumer "+want.Name+"/"+HistoryConsumer, []field{
-		{"DeliverPolicy", wantC.DeliverPolicy, gotC.DeliverPolicy},
-		{"AckPolicy", wantC.AckPolicy, gotC.AckPolicy},
-		{"AckWait", wantC.AckWait, gotC.AckWait},
-		{"MaxAckPending", wantC.MaxAckPending, gotC.MaxAckPending},
-	})
+	return s, nil
 }
 
 type field struct {

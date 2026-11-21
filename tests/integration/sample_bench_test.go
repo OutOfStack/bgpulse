@@ -33,7 +33,8 @@ func BenchmarkSequentialPubAck(b *testing.B) {
 	}
 	ns := "bench_" + rand.Text()
 	cfg := jetstream.RawStream(ns)
-	if _, err = js.CreateStream(b.Context(), cfg); err != nil {
+	stream, err := js.CreateStream(b.Context(), cfg)
+	if err != nil {
 		b.Fatal(err)
 	}
 	defer func() {
@@ -50,4 +51,12 @@ func BenchmarkSequentialPubAck(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+	info, err := stream.Info(b.Context())
+	if err != nil {
+		b.Fatal(err)
+	}
+	if info.State.Msgs == 0 {
+		b.Fatal("no retained messages to measure")
+	}
+	b.ReportMetric(float64(info.State.Bytes)/float64(info.State.Msgs), "retained-B/msg")
 }

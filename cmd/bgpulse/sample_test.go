@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/outofstack/bgpulse/internal/ris"
 )
 
 const sampleAck = `{"type":"ris_subscribe_ok","data":{"subscription":{"host":"rrc21"},"socketOptions":{"includeRaw":false,"acknowledge":true}}}`
@@ -35,7 +36,7 @@ func TestSampleReconnect(t *testing.T) {
 		}
 		defer conn.CloseNow()
 		_, sub, readErr := conn.Read(r.Context())
-		if readErr != nil || string(sub) != subscription {
+		if readErr != nil || string(sub) != ris.Subscription {
 			t.Errorf("subscription %s: %v", sub, readErr)
 			return
 		}
