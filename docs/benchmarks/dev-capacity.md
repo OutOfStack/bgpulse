@@ -46,13 +46,15 @@ All sizes below use 2³⁰ bytes/GiB. The broker rates are measured. Scylla cost
 
 At either measured rate, age limits replay to **at most 20 minutes**. With `DiscardNew`, reaching 10 GiB first rejects publishes until space becomes available. Consumer ACKs do not release space under limits retention. Inspect the oldest retained record's timestamp and publish rejections to establish actual coverage.
 
-The planned history writer uses a fixed deadline of `event_time + 30m` for both raw and prefix rows. Each retry uses the remaining positive TTL and skips expired rows. Migration 0001 gives raw inserts that omit TTL a 24-hour lifetime. Such a row can delay reclaiming its whole SSTable beyond the allowance, so every history write must set TTL. Production history writes and prefix tables arrive in phase 1. Expiry bounds query visibility. Compaction timing, compression and concurrent writes determine physical disk usage.
+The history writer uses a fixed deadline of `event_time + 30m` for both raw and prefix rows. Each retry uses the remaining positive TTL and skips expired rows. Migration 0002 creates the prefix table with a 30-minute safety-net default TTL and lowers the raw table's default from 24 hours to match, because a row that outlives the budget can delay reclaiming its whole SSTable. The writer still sets TTL on every insert. Expiry bounds query visibility. Compaction timing, compression and concurrent writes determine physical disk usage.
 
 ## Validating the budget
 
 Before sustained capture, repeat the stored byte-rate measurement over representative busy intervals. The 10 GiB cap supports a 20-minute age with the 1.5 margin up to **5,965,232 B/s**. If growth exceeds that threshold, shorten the age, narrow collection or allocate more storage before continuing. If the 8-second source and prefix rates persist, their estimated 10.53 MB/s of logical history would more than triple the modeled history growth rate.
 
-When the writer lands, measure disk growth per raw and prefix row. Track volume usage and available space on the backing filesystem through at least one full expiry and compaction cycle under the pinned stack. Recalculate the 40.43 GiB allowance from the measured disk growth. Continue monitoring both filesystems throughout capture. Stop or resize before any affected filesystem falls below 30% free. Allow separate space for concurrent replay, snapshots or other namespaces.
+On November 22 the pinned Scylla 2026.3.5 image (`--smp 1 --memory 2G`) showed expiry and reclamation as separate steps. A setup-provisioned namespace received 20,000 `prefix_events_v1` rows in one partition with `USING TTL 60`, and `nodetool flush` wrote one 399,080 B SSTable. After the TTL, `COUNT(*)` returned 0 while the SSTable and its bytes remained. `nodetool compact` then removed it, leaving 0 SSTables and 0 B live, with no `gc_grace_seconds` wait under immediate tombstone GC. These rows held only keys and a short path, so they do not measure production row size.
+
+Before sustained capture through the persist consumer, measure disk growth per raw and prefix row. Track volume usage and available space on the backing filesystem through at least one full expiry and compaction cycle under the pinned stack. Recalculate the 40.43 GiB allowance from the measured disk growth. Continue monitoring both filesystems throughout capture. Stop or resize before any affected filesystem falls below 30% free. Allow separate space for concurrent replay, snapshots or other namespaces.
 
 ## Existing streams
 

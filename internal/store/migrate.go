@@ -71,10 +71,17 @@ func pending(migs []Migration, applied map[int]string) ([]Migration, error) {
 	return nil, nil
 }
 
-// statements splits a migration into single statements for the driver.
+// statements drops whole-line "--" comments, then splits a migration into single
+// statements for the driver. A ";" inside a string literal would still split.
 func statements(cql, keyspace string) []string {
+	var code strings.Builder
+	for line := range strings.Lines(cql) {
+		if !strings.HasPrefix(strings.TrimSpace(line), "--") {
+			code.WriteString(line)
+		}
+	}
 	var out []string
-	for s := range strings.SplitSeq(cql, ";") {
+	for s := range strings.SplitSeq(code.String(), ";") {
 		if s = strings.TrimSpace(s); s != "" {
 			out = append(out, strings.ReplaceAll(s, "{{keyspace}}", keyspace))
 		}

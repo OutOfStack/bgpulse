@@ -108,7 +108,7 @@ flowchart TD
     setup --> js["internal/jetstream.Ensure"]
     js -->|"create resources"| nats[("NATS JetStream<br/>raw stream + history-v1")]
     js -->|"after success"| migrate["internal/store.Migrate"]
-    migrate -->|"create keyspace<br/>apply pending CQL"| scylla[("ScyllaDB<br/>raw_messages_v1<br/>schema_migrations")]
+    migrate -->|"create keyspace<br/>apply pending CQL"| scylla[("ScyllaDB<br/>raw_messages_v1<br/>prefix_events_v1<br/>schema_migrations")]
 ```
 
 `setup -check` uses `jetstream.Check` and `store.Check` instead of the creation
@@ -120,18 +120,41 @@ For the default namespace `live`, setup provisions:
 | Component | Resource |
 |---|---|
 | JetStream | Stream `BGPULSE_LIVE_RAW_V1`, subjects `bgpulse.live.raw.v1.ris.*`, durable consumer `history-v1` with explicit acknowledgments |
-| ScyllaDB | Keyspace `bgpulse_live`, raw history table `raw_messages_v1`, migration ledger `schema_migrations` |
+| ScyllaDB | Keyspace `bgpulse_live`, raw history table `raw_messages_v1`, prefix history table `prefix_events_v1`, migration ledger `schema_migrations` |
 | Local deployment | One NATS node and one Scylla node, persistent Compose volumes, localhost ports |
 
 The raw stream uses file storage, one replica, a 20-minute maximum age and a
 10 GiB size limit. At the byte limit, `DiscardNew` rejects incoming records.
 The pilot budgets 30 minutes of raw and prefix history from source event time.
-The future writer must supply the remaining TTL on each insert. The existing
-raw table's 24-hour default TTL applies to inserts that omit it. The current
-commands provision resources and capture RIS traffic to JetStream. [Capacity worksheet](benchmarks/dev-capacity.md)
+The current commands provision resources and capture RIS traffic to JetStream.
+[Capacity worksheet](benchmarks/dev-capacity.md)
+
+## History rows
+
+`internal/store.History` writes one `raw_messages_v1` row with the exact frame
+bytes and one `prefix_events_v1` row per normalized prefix child. No command
+calls it yet; the planned `persist` consumer will.
+
+| Table | Partition | Clustering |
+|---|---|---|
+| `raw_messages_v1` | source, collector, UTC 5-minute bucket of event time, shard = first 64 bits of SHA-256(`message_id`) mod 4 | `event_time_us` DESC, `message_id` |
+| `prefix_events_v1` | canonical prefix, UTC hour of event time, shard 0 | `event_time_us` DESC, `event_id` |
+
+Each row targets expiry at `event_time + 30m`. Each insert sends the remaining
+TTL to that deadline, rounded down to whole seconds, so a retry aims at the
+same deadline. Scylla starts a TTL when the write arrives, so a row expires up
+to one second early, or late by the request latency. Exact expiry is not
+guaranteed. With less than a second left the writer returns
+`ErrExpired` instead of sending TTL 0, which would never expire. Event times more than 5 minutes ahead of the writer
+clock return `ErrFutureEvent` for quarantine. Keys come from `message_id` and
+`event_id`, so rewriting a message after a partial failure converges on the
+same rows. Withdrawals leave announcement columns unset rather than null.
+Both tables use 1-hour TWCS windows, immediate tombstone GC and a 30-minute
+safety-net default TTL. Expiry hides rows from queries, while compaction
+reclaims their bytes later.
 
 The [README roadmap](../README.md#roadmap) describes the planned end-to-end
-pipeline, including the planned history writer, routing state, analytics, RPKI
+pipeline, including the planned persist consumer, routing state, analytics, RPKI
 and HTTP API.
 
 Source: [command dispatch and watch](../cmd/bgpulse/main.go),
@@ -139,5 +162,7 @@ Source: [command dispatch and watch](../cmd/bgpulse/main.go),
 [setup](../cmd/bgpulse/setup.go), [normalization](../internal/event/event.go),
 [JetStream resources](../internal/jetstream/jetstream.go),
 [schema migration](../internal/store/migrate.go),
-[raw history schema](../migrations/0001_raw_messages_v1.cql) and
+[history writer](../internal/store/history.go),
+[raw history schema](../migrations/0001_raw_messages_v1.cql),
+[prefix history schema and raw TTL default](../migrations/0002_prefix_events_v1.cql) and
 [local deployment](../deploy/compose.yaml).
