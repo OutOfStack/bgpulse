@@ -113,7 +113,7 @@ func TestCheckFailsOnEmptyNamespace(t *testing.T) {
 func TestStreamDriftFails(t *testing.T) {
 	e := newEnv(t)
 	cfg := jetstream.RawStream(e.ns)
-	cfg.MaxAge = time.Hour
+	cfg.MaxAge = 24 * time.Hour // previous development profile
 	if _, err := e.js.CreateStream(t.Context(), cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -172,8 +172,18 @@ func TestRoundTrip(t *testing.T) {
 	payload := []byte(`{"synthetic":true}`)
 	const msgID = "sha256:roundtrip"
 	subject := jetstream.RawSubject(e.ns, "rrc00")
-	if _, err := e.js.Publish(ctx, subject, payload, natsjs.WithMsgID(msgID)); err != nil {
+	capture, err := jetstream.OpenCapture(ctx, e.js, e.ns, "rrc00")
+	if err != nil {
 		t.Fatal(err)
+	}
+	if last, lookupErr := capture.Last(ctx); lookupErr != nil || last != nil {
+		t.Fatalf("empty collector tail = %q, %v", last, lookupErr)
+	}
+	if err = capture.Publish(ctx, msgID, payload); err != nil {
+		t.Fatal(err)
+	}
+	if last, lookupErr := capture.Last(ctx); lookupErr != nil || string(last) != string(payload) {
+		t.Fatalf("collector tail = %q, %v", last, lookupErr)
 	}
 	ack, err := e.js.Publish(ctx, subject, payload, natsjs.WithMsgID(msgID))
 	if err != nil {

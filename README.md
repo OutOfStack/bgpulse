@@ -35,9 +35,13 @@ Needs Go (version in `go.mod`) and Docker or Podman with Compose. The dev stack 
 | `make setup` | Create the JetStream stream/consumer and apply CQL migrations; `make setup ARGS=-check` only verifies |
 | `make test-integration` | Integration tests against the running stack |
 
+For one all-types `rrc21` subscription, setup gives the raw stream a 20-minute maximum age and a 10 GiB cap. The RF=1 pilot also budgets 30 minutes of queryable history once persistence lands. Check the host's free disk before sustained capture. [Capacity worksheet and upgrade notes](docs/benchmarks/dev-capacity.md)
+
+After `make up` and `make setup`, run `go run ./cmd/bgpulse ingest` to capture `rrc21` to JetStream. Ingest only needs NATS after provisioning. Run one ingester for the subscription across all hosts. Ctrl-C stops the socket and gives pending records up to 30 seconds to receive a PubAck. [Capture and recovery](docs/architecture.md#durable-capture)
+
 ## How
 
-See [current architecture and data flow](docs/architecture.md) for the implemented `watch`, `sample` and `setup` paths. The pipeline below is the target architecture; the remaining subcommands are planned.
+See [current architecture and data flow](docs/architecture.md) for the implemented `watch`, `sample`, `setup` and `ingest` paths. The pipeline below shows the target architecture.
 
 ```
 RIPE RIS Live ─▶ ingest ─▶ NATS JetStream ─▶ persist ─▶ ScyllaDB ─▶ HTTP API

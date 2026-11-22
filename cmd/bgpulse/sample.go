@@ -16,13 +16,10 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/outofstack/bgpulse/internal/event"
+	"github.com/outofstack/bgpulse/internal/ris"
 )
 
-const (
-	sampleURL       = "wss://ris-live.ripe.net/v1/ws/?client=bgpulse-sample"
-	sampleCollector = "rrc21"
-	subscription    = `{"type":"ris_subscribe","data":{"host":"` + sampleCollector + `","socketOptions":{"includeRaw":false,"acknowledge":true}}}`
-)
+const sampleURL = "wss://ris-live.ripe.net/v1/ws/?client=bgpulse-sample"
 
 // A frame is capped at 1 MiB, bounding the number of distinct sizes and child counts.
 type histogram map[int]int64
@@ -63,39 +60,14 @@ type sampleWindow struct {
 }
 
 func (s *sampleStats) observe(raw []byte, w *sampleWindow, now time.Time) error {
-	var f struct {
-		Type string `json:"type"`
-		Data struct {
-			Subscription  map[string]string `json:"subscription"`
-			SocketOptions struct {
-				IncludeRaw  *bool `json:"includeRaw"`
-				Acknowledge bool  `json:"acknowledge"`
-			} `json:"socketOptions"`
-			Message string `json:"message"`
-			Host    string `json:"host"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal(raw, &f); err != nil {
+	f, err := ris.Decode(raw, !w.Acknowledged.IsZero())
+	if err != nil {
 		return err
 	}
 	switch f.Type {
 	case "ris_subscribe_ok":
-		opts := f.Data.SocketOptions
-		if len(f.Data.Subscription) != 1 || f.Data.Subscription["host"] != sampleCollector ||
-			opts.IncludeRaw == nil || *opts.IncludeRaw || !opts.Acknowledge {
-			return errors.New("unexpected RIS subscription acknowledgment")
-		}
 		w.Acknowledged = now
-	case "pong":
-	case "ris_error":
-		return fmt.Errorf("RIS error: %s", f.Data.Message)
 	case "ris_message":
-		if w.Acknowledged.IsZero() {
-			return errors.New("data before subscription acknowledgment")
-		}
-		if f.Data.Host != sampleCollector && f.Data.Host != sampleCollector+".ripe.net" {
-			return fmt.Errorf("unexpected collector %q", f.Data.Host)
-		}
 		if w.Messages == 0 {
 			w.First = now
 		}
@@ -113,38 +85,12 @@ func (s *sampleStats) observe(raw []byte, w *sampleWindow, now time.Time) error 
 			s.typeOverflow++
 		}
 		s.fanout[len(m.Children)]++
-	default:
-		return fmt.Errorf("unexpected RIS frame type %q", f.Type)
 	}
 	return nil
 }
 
 func (s *sampleStats) readWindow(ctx context.Context, url string, w *sampleWindow) error {
-	connectCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	conn, _, err := websocket.Dial(connectCtx, url, nil) //nolint:bodyclose // Dial owns the HTTP response body.
-	cancel()
-	if err != nil {
-		return err
-	}
-	defer func() { _ = conn.CloseNow() }()
-	conn.SetReadLimit(1 << 20)
-	if err = conn.Write(ctx, websocket.MessageText, []byte(subscription)); err != nil {
-		return err
-	}
-	for {
-		frameCtx, stop := context.WithTimeout(ctx, 30*time.Second)
-		kind, raw, readErr := conn.Read(frameCtx)
-		stop()
-		if readErr != nil {
-			return readErr
-		}
-		if kind != websocket.MessageText {
-			return errors.New("expected a RIS text frame")
-		}
-		if err = s.observe(raw, w, time.Now().UTC()); err != nil {
-			return err
-		}
-	}
+	return ris.Read(ctx, url, func(raw []byte, now time.Time) error { return s.observe(raw, w, now) })
 }
 
 func retrySample(err error) bool {
@@ -229,7 +175,7 @@ func measureSample(ctx context.Context, url string, duration time.Duration, out 
 	}
 	writeErr := json.MarshalWrite(out, map[string]any{
 		"complete":  captureErr == nil,
-		"collector": sampleCollector, "started": start.UTC(), "elapsed_seconds": elapsed, "windows": windows,
+		"collector": ris.Collector, "started": start.UTC(), "elapsed_seconds": elapsed, "windows": windows,
 		"raw_messages_per_second":  rawRate,
 		"prefix_events_per_second": prefixRate,
 		"payload_bytes":            sizes, "prefixes_per_valid_message": fanout,
