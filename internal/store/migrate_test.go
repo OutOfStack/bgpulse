@@ -59,7 +59,7 @@ func TestPending(t *testing.T) {
 }
 
 func TestStatements(t *testing.T) {
-	got := statements("CREATE TABLE {{keyspace}}.a (x int PRIMARY KEY);\n\nCREATE TABLE {{keyspace}}.b (y int PRIMARY KEY);\n", "ks")
+	got := statements("-- a; b\nCREATE TABLE {{keyspace}}.a (x int PRIMARY KEY);\n\n  -- c;\nCREATE TABLE {{keyspace}}.b (y int PRIMARY KEY);\n", "ks")
 	want := []string{"CREATE TABLE ks.a (x int PRIMARY KEY)", "CREATE TABLE ks.b (y int PRIMARY KEY)"}
 	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
 		t.Fatalf("got %q", got)

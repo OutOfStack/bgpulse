@@ -56,9 +56,10 @@ Invariants that span several files:
 - **Migrations** in `migrations/NNNN_name.cql`:
   - Embedded into the binary and applied in order by `internal/store`. Checksums are recorded in `<keyspace>.schema_migrations`, and a changed applied file fails setup.
   - Never edit an applied file: add the next number.
-  - Use `{{keyspace}}` instead of a keyspace name, and end statements with `;`.
+  - Use `{{keyspace}}` instead of a keyspace name, and end statements with `;`. Whole-line `--` comments are dropped before splitting, so they may contain `;`. Elsewhere `;` may only end a statement.
   - `.gitattributes` forces LF so checksums match across OSes.
-  - Schema changes add new versioned tables (`*_v2`) rather than altering existing ones.
+  - Key or column changes add new versioned tables (`*_v2`) rather than altering existing ones. Table options such as the default TTL may be altered.
+- **History expiry.** Every raw and prefix insert sets the remaining TTL to event time + 30 minutes and never sends TTL 0 ([details](docs/architecture.md#history-rows)). Bucket widths and shard counts in `internal/store/history.go` are part of the v1 table schemas: changing them needs new tables.
 - **Scylla driver.** Code imports `github.com/gocql/gocql`, and a `replace` in go.mod points it at Scylla's shard-aware fork (whose go.mod still declares the gocql path). `.golangci.yaml` allow-lists that replace.
 - **Toolchain.** go.mod has `go 1.27.0` plus `toolchain go1.27.4`; the toolchain pin is what clears the stdlib advisories govulncheck reports. CI installs the latest `1.27.x` patch (`check-latest`), so bump the pin when govulncheck flags a newer stdlib fix.
 - **NATS durability.** `deploy/nats/nats.conf` sets `sync_interval: always` (PubAck waits for fsync). An integration test asserts it, so don't relax it in the default profile.

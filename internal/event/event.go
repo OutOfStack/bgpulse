@@ -119,11 +119,10 @@ func Normalize(raw []byte) (*Message, error) {
 	if err != nil {
 		return nil, err
 	}
-	peer, err := netip.ParseAddr(d.Peer)
+	peer, err := parseAddr(d.Peer)
 	if err != nil {
 		return nil, fmt.Errorf("peer: %w", err)
 	}
-	peer = peer.Unmap()
 	peerASN, err := strconv.ParseUint(d.PeerASN, 10, 32)
 	if err != nil {
 		return nil, fmt.Errorf("peer_asn: %w", err)
@@ -162,7 +161,7 @@ func Normalize(raw []byte) (*Message, error) {
 		}
 		var hops []netip.Addr
 		for h := range strings.SplitSeq(a.NextHop, ",") { // IPv6 may carry global,link-local
-			addr, pErr := netip.ParseAddr(strings.TrimSpace(h))
+			addr, pErr := parseAddr(strings.TrimSpace(h))
 			if pErr != nil {
 				return nil, fmt.Errorf("announcement %d next_hop: %w", g, pErr)
 			}
@@ -186,6 +185,16 @@ func (m *Message) add(c Child, group, index int) {
 	c.Ordinal = len(m.Children)
 	c.EventID = hashID(m.MessageID, c.Action, strconv.Itoa(group), strconv.Itoa(index))
 	m.Children = append(m.Children, c)
+}
+
+// parseAddr returns the canonical, unmapped form of an IP address. A zoned IPv6 address
+// has no wire form for storage, so it rejects the message instead.
+func parseAddr(s string) (netip.Addr, error) {
+	a, err := netip.ParseAddr(s)
+	if err == nil && a.Zone() != "" {
+		err = fmt.Errorf("zoned address %q", s)
+	}
+	return a.Unmap(), err
 }
 
 // hashID is SHA-256 over length-prefixed parts, so ("ab","c") != ("a","bc").

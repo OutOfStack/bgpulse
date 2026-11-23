@@ -137,6 +137,8 @@ func TestNormalizeOutcomes(t *testing.T) {
 		{"null prefixes", head + `"type":"UPDATE","path":[64500],"withdrawals":["192.0.2.0/24"],"announcements":[{"next_hop":"192.0.2.1","prefixes":null}]}}`, 0, true, false},
 		{"empty prefixes", head + `"type":"UPDATE","path":[64500],"withdrawals":["192.0.2.0/24"],"announcements":[{"next_hop":"192.0.2.1","prefixes":[]}]}}`, 1, false, false},
 		{"bad next hop", head + `"type":"UPDATE","path":[64500],"announcements":[{"next_hop":"nope","prefixes":["192.0.2.0/24"]}]}}`, 0, true, false},
+		{"zoned next hop", head + `"type":"UPDATE","path":[64500],"announcements":[{"next_hop":"2001:db8::1,fe80::1%eth0","prefixes":["2001:db8::/32"]}]}}`, 0, true, false},
+		{"zoned peer", `{"type":"ris_message","data":{"timestamp":1,"peer":"fe80::1%eth0","peer_asn":"1","id":"x","host":"rrc21","type":"UPDATE"}}`, 0, true, false},
 	}
 	for _, c := range cases {
 		m, err := Normalize([]byte(c.raw))
