@@ -42,7 +42,7 @@ All sizes below use 2³⁰ bytes/GiB. The broker rates are measured. Scylla cost
 | Logical history growth = (61,076 × 1,280 + 149,415 × 768) / 60 | 3,215,467 B/s |
 | 30 minutes of queryable raw and prefix rows | 5.39 GiB |
 | Scylla disk allowance = growth × (0.5 h TTL + 1 h TWCS window + 1 h compaction backlog) × 1.5 for storage overhead and bursts | 40.43 GiB |
-| Full broker cap + Scylla allowance | **50.43 GiB** estimated resident footprint |
+| Full raw and quarantine stream caps (10 + 1 GiB) + Scylla allowance | **51.43 GiB** estimated resident footprint |
 
 At either measured rate, age limits replay to **at most 20 minutes**. With `DiscardNew`, reaching 10 GiB first rejects publishes until space becomes available. Consumer ACKs do not release space under limits retention. Inspect the oldest retained record's timestamp and publish rejections to establish actual coverage.
 

@@ -32,16 +32,18 @@ Needs Go (version in `go.mod`) and Docker or Podman with Compose. The dev stack 
 |---|---|
 | `make build` / `make test` / `make lint` / `make vuln` | Build, unit tests with `-race`, golangci-lint, govulncheck |
 | `make up` / `make down` | Start or stop pinned NATS and Scylla from `deploy/compose.yaml` (localhost ports, volumes kept) |
-| `make setup` | Create the JetStream stream/consumer and apply CQL migrations; `make setup ARGS=-check` only verifies |
+| `make setup` | Create the JetStream streams/consumer and apply CQL migrations; `make setup ARGS=-check` only verifies |
 | `make test-integration` | Integration tests against the running stack |
 
-For one all-types `rrc21` subscription, setup gives the raw stream a 20-minute maximum age and a 10 GiB cap. The RF=1 pilot also budgets 30 minutes of queryable history once persistence lands. Check the host's free disk before sustained capture. [Capacity worksheet and upgrade notes](docs/benchmarks/dev-capacity.md)
+For one all-types `rrc21` subscription, setup gives the raw stream a 20-minute maximum age and a 10 GiB cap, and the quarantine stream 7 days and 1 GiB. The RF=1 pilot budgets 30 minutes of queryable history. Check the host's free disk before sustained capture. [Capacity worksheet and upgrade notes](docs/benchmarks/dev-capacity.md)
 
 After `make up` and `make setup`, run `go run ./cmd/bgpulse ingest` to capture `rrc21` to JetStream. Ingest only needs NATS after provisioning. Run one ingester for the subscription across all hosts. Ctrl-C stops the socket and gives pending records up to 30 seconds to receive a PubAck. [Capture and recovery](docs/architecture.md#durable-capture)
 
+Run `go run ./cmd/bgpulse persist` alongside it to write the stream to Scylla history and source status. It ACKs a record only after its rows are written, quarantines records it can never project, and retries the rest. Stopping it is safe: unacknowledged records are redelivered. [History consumer](docs/architecture.md#history-consumer)
+
 ## How
 
-See [current architecture and data flow](docs/architecture.md) for the implemented `watch`, `sample`, `setup` and `ingest` paths. The pipeline below shows the target architecture.
+See [current architecture and data flow](docs/architecture.md) for the implemented `watch`, `sample`, `setup`, `ingest` and `persist` paths. The pipeline below shows the target architecture.
 
 ```
 RIPE RIS Live ─▶ ingest ─▶ NATS JetStream ─▶ persist ─▶ ScyllaDB ─▶ HTTP API

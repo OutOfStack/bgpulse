@@ -3,8 +3,6 @@
 package integration
 
 import (
-	"crypto/sha256"
-	"encoding/binary"
 	"errors"
 	"os"
 	"strings"
@@ -83,8 +81,7 @@ func TestHistoryWrite(t *testing.T) {
 		update:     {hour.Add(-5 * time.Minute), hour.Add(-time.Hour)},
 		withdrawal: {hour, hour},
 	} {
-		sum := sha256.Sum256([]byte(m.MessageID)) // independent copy of the raw shard contract (4 shards)
-		shard := int16(binary.BigEndian.Uint64(sum[:8]) % 4)
+		shard := rawShard(m.MessageID)
 		nonzero = nonzero || shard != 0
 		var id string
 		var ttl int

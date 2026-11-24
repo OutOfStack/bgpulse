@@ -39,22 +39,11 @@ func setup(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	nc, err := nats.Connect(*natsURL, nats.Name("bgpulse-setup"))
-	if err != nil {
-		return fmt.Errorf("nats: %w", err)
-	}
-	defer nc.Close()
-	js, err := natsjs.New(nc)
+	js, sess, closeAll, err := connect(*natsURL, *hosts, "bgpulse-setup")
 	if err != nil {
 		return err
 	}
-	cluster := gocql.NewCluster(strings.Split(*hosts, ",")...)
-	cluster.Timeout = 30 * time.Second // DDL is slow on a small dev node
-	sess, err := cluster.CreateSession()
-	if err != nil {
-		return fmt.Errorf("scylla: %w", err)
-	}
-	defer sess.Close()
+	defer closeAll()
 
 	stream, keyspace := jetstream.RawStream(*ns).Name, store.Keyspace(*ns)
 	if *check {
@@ -80,6 +69,27 @@ func setup(ctx context.Context, args []string) error {
 	}
 	logger.Info("setup complete", "namespace", *ns, "stream", stream, "keyspace", keyspace, "applied", names)
 	return nil
+}
+
+// connect opens NATS and Scylla. The NATS client reconnects indefinitely.
+func connect(natsURL, hosts, name string) (natsjs.JetStream, *gocql.Session, func(), error) {
+	nc, err := nats.Connect(natsURL, nats.Name(name), nats.MaxReconnects(-1))
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("nats: %w", err)
+	}
+	js, err := natsjs.New(nc)
+	if err != nil {
+		nc.Close()
+		return nil, nil, nil, err
+	}
+	cluster := gocql.NewCluster(strings.Split(hosts, ",")...)
+	cluster.Timeout = 30 * time.Second // DDL is slow on a small dev node
+	sess, err := cluster.CreateSession()
+	if err != nil {
+		nc.Close()
+		return nil, nil, nil, fmt.Errorf("scylla: %w", err)
+	}
+	return js, sess, func() { sess.Close(); nc.Close() }, nil
 }
 
 func envOr(key, def string) string {
