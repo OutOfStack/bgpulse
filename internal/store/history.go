@@ -68,7 +68,8 @@ func NewHistory(s *gocql.Session, ns string) *History {
 // Each insert carries the remaining TTL to event time + Retention. A failed Write may
 // leave some rows written; retrying it converges on the complete set.
 //
-// ponytail: children are written one at a time; P1.4 bounds concurrency across messages.
+// ponytail: children are written one at a time, so persist's 8 workers keep at most 8 writes in flight, well
+// inside the 64-write budget. Write children concurrently under a shared limit if consumer lag needs it.
 func (h *History) Write(ctx context.Context, m *event.Message, payload []byte) error {
 	at := time.UnixMicro(m.EventTimeUS).UTC()
 	if at.Sub(h.Now()) > maxClockSkew {

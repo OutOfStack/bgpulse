@@ -27,6 +27,7 @@ make down                  # keeps volumes; add -v via compose to wipe
 go run ./cmd/bgpulse watch -host rrc21   # live RIS viewer, needs internet only
 go run ./cmd/bgpulse sample -duration 30s   # rrc21 traffic summary as JSON (default 30m)
 go run ./cmd/bgpulse ingest                 # live rrc21 capture after setup, needs NATS only
+go run ./cmd/bgpulse persist                # history consumer after setup, needs NATS and Scylla
 ```
 
 - Formatting is enforced by lint (gci import groups, gofmt, goimports). Fix with `golangci-lint fmt`. Integration code is behind a build tag: lint it with `golangci-lint run --build-tags=integration ./tests/...`.
@@ -40,16 +41,18 @@ The full design is in `docs/local/plan.md`, with per-scope decisions in `docs/lo
 
 ## Architecture
 
-Target pipeline: RIPE RIS Live → `ingest` → NATS JetStream (raw stream, durable boundary) → `persist` → ScyllaDB (query-specific tables) → HTTP `api`. Later phases add `state`, analytics, RPKI and `replay`. One binary, `cmd/bgpulse`, with subcommands. Implemented so far: `watch` (live viewer), `sample` (rrc21 traffic measurement), `setup` (provisioning) and `ingest` (durable capture). Planned packages and their phases are listed in plan.md §2.
+Target pipeline: RIPE RIS Live → `ingest` → NATS JetStream (raw stream, durable boundary) → `persist` → ScyllaDB (query-specific tables) → HTTP `api`. Later phases add `state`, analytics, RPKI and `replay`. One binary, `cmd/bgpulse`, with subcommands. Implemented so far: `watch` (live viewer), `sample` (rrc21 traffic measurement), `setup` (provisioning), `ingest` (durable capture) and `persist` (history consumer). Planned packages and their phases are listed in plan.md §2.
 
 Invariants that span several files:
 
 - **Deterministic identity.** `internal/event.Normalize` turns one RIS JSON frame into a message plus ordered prefix children. `message_id`, `observer_id` and `event_id` are SHA-256 hashes of length-prefixed parts and will become Scylla primary keys. The golden values in `internal/event/event_test.go` are a contract: changing them is a schema change, not a test fix.
 - **At-least-once.** A message is accepted once JetStream PubAcks it. Consumers ACK only after all required writes, and writes must be idempotent on those IDs. There is no exactly-once.
 - **Ingest order.** `internal/ris` verifies the pilot subscription. `internal/ingest` serializes source and gap controls through one bounded FIFO. An uncertain PubAck retries identical bytes and ID. Look up the authoritative subject tail before each epoch. Only a missing record gives an unknown restart boundary.
+- **Persist ACK.** `internal/persist` ACKs a record only after all its rows are written, after a quarantine PubAck, or when the history deadline has already passed. Transient failures are NAKed with 1 s to 30 s backoff and no MaxDeliver. A `schema_version` above 1 or an unknown `kind` stops the consumer and leaves the record pending; it is never quarantined as bad data.
+- **Lifecycle projection order.** `source_status_v1` and `source_gaps_v1` are written only with `USING TIMESTAMP` = raw stream creation time in µs + stream sequence, so the newest accepted control wins in any delivery order. Never write them with server timestamps. Gap `ended_at` is never written null.
 - **Only `setup` mutates infrastructure.** `setup` creates the stream/consumer and applies CQL. Other roles call the same `Check` functions and refuse to start on drift; they never auto-migrate.
 - **Namespace.** A namespace (`live`, later replay runs) is part of subjects (`bgpulse.<ns>.raw.v1.ris.<collector>`), the stream name (`BGPULSE_<NS>_RAW_V1`) and the keyspace (`bgpulse_<ns>`). It is validated once in `cmd/bgpulse/setup.go`; the packages assume a valid one, because it is interpolated into CQL.
-- **JetStream resources** are declared in `internal/jetstream` (`RawStream`, `History`).
+- **JetStream resources** are declared in `internal/jetstream` (`RawStream`, `QuarantineStream`, `History`).
   - The RF=1 pilot budgets 20 minutes for raw replay (10 GiB cap) and 30 minutes from event time for history writes. Recheck the [capacity worksheet](docs/benchmarks/dev-capacity.md) when changing retention or collector scope.
   - `Ensure` relies on server Create semantics: an identical config is a no-op, a different one is rejected, never overwritten.
   - `Check` compares an explicit list of declared fields. When you add a field to a declared config, add it to `Check` too.

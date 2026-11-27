@@ -67,6 +67,7 @@ func newEnv(t *testing.T) *env {
 	t.Cleanup(func() {
 		ctx := context.Background()
 		_ = js.DeleteStream(ctx, jetstream.RawStream(e.ns).Name)
+		_ = js.DeleteStream(ctx, jetstream.QuarantineStream(e.ns).Name)
 		_ = sess.Query("DROP KEYSPACE IF EXISTS " + store.Keyspace(e.ns)).WithContext(ctx).Exec()
 	})
 	return e

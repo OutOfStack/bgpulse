@@ -17,7 +17,7 @@ type Capture struct {
 
 // OpenCapture verifies the raw stream without provisioning resources.
 func OpenCapture(ctx context.Context, js natsjs.JetStream, ns, collector string) (*Capture, error) {
-	stream, err := checkStream(ctx, js, ns)
+	stream, err := checkStream(ctx, js, RawStream(ns))
 	if err != nil {
 		return nil, err
 	}

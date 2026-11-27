@@ -3,6 +3,7 @@
 //	watch  stream live BGP UPDATEs from one RIPE RIS collector and print them
 //	sample  measure rrc21 over two consecutive RIS Live subscriptions
 //	ingest  publish acknowledged rrc21 source and lifecycle records to JetStream
+//	persist  write raw records to Scylla history and source status, quarantining bad input
 //	setup  create or check the JetStream streams and Scylla schema
 package main
 
@@ -24,7 +25,7 @@ import (
 
 const streamURL = "https://ris-live.ripe.net/v1/stream/?format=json&client=bgpulse"
 
-const usage = "usage: bgpulse <watch|sample|setup|ingest> [flags]"
+const usage = "usage: bgpulse <watch|sample|setup|ingest|persist> [flags]"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -41,6 +42,8 @@ func main() {
 		err = setup(ctx, os.Args[2:])
 	case "ingest":
 		err = ingestLive(ctx, os.Args[2:])
+	case "persist":
+		err = persistLive(ctx, os.Args[2:])
 	default:
 		err = errors.New(usage)
 	}
